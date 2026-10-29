@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080808"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="철도 시계"><meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
+<title>철도 시계</title>
+<style>
+/* Layout: full-screen square SVG dial centered; floating control bar appears on touch/move, hides after 1s */
+:root{--bg:#ffffff;--fg:#101010;--second:#e32620;--panel:#ffffffed;--panel-line:#dddddd;--btn:#f2f2f2;--btn-fg:#111111;--btn-on:#161616;--btn-on-fg:#ffffff;--ver:#666666;--toast:#161616;--toast-fg:#ffffff;
+--font:Arial,'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+:root[data-mode="dark"]{--bg:#080808;--fg:#eeeeee;--panel:#222222ee;--panel-line:#444444;--btn:#373737;--btn-fg:#ffffff;--btn-on:#eeeeee;--btn-on-fg:#111111;--ver:#bbbbbb;--toast:#eeeeee;--toast-fg:#111111;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);touch-action:manipulation;padding-block:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{height:100%;display:grid;place-items:center;padding-block:16px}
+#clock{width:min(94vw,94vh);height:auto;max-width:100%;max-height:100%;overflow:visible}
+.tick,.hand{fill:currentColor}.second{fill:var(--second)}
+#controls{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:max-content;max-width:95vw;padding:9px;border:1px solid var(--panel-line);background:var(--panel);border-radius:18px}
+#controls.hidden{opacity:0;pointer-events:none}
+button{font:inherit;font-size:14px;min-height:44px;background:var(--btn);border:0;border-radius:11px;padding:10px 14px;cursor:pointer;color:var(--btn-fg)}
+button:focus-visible{outline:3px solid var(--second);outline-offset:2px}
+button[aria-pressed=true]{background:var(--btn-on);color:var(--btn-on-fg)}
+#message{position:fixed;top:calc(20px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--toast);color:var(--toast-fg);padding:12px 18px;border-radius:12px;font-size:14px;max-width:90vw;text-align:center;opacity:0;pointer-events:none}
+#message.visible{opacity:1}
+</style>
+</head><body>
+
+<script>
+(function(){var m='dark';try{m=localStorage.getItem('rail-theme')==='light'?'light':'dark'}catch(e){}document.documentElement.dataset.mode=m;})();
+</script>
+<main aria-label="현재 시각">
+<svg id="clock" role="img" aria-label="현재 시각" viewBox="0 0 600 600">
+<g id="ticks"></g><g id="numbers"></g>
+<g id="hour"><path class="hand" d="M288 332V153h24v179z"/></g>
+<g id="minute"><path class="hand" d="M292 345V83h16v262z"/></g>
+<g id="second"><path class="second" d="M297 345V93h6v252z"/><circle class="second" cx="300" cy="108" r="18"/></g>
+<circle class="hand" cx="300" cy="300" r="11"/><circle class="second" cx="300" cy="300" r="5"/>
+</svg>
+</main>
+<nav id="controls" aria-label="시계 설정" class="hidden">
+<button id="fullscreen">전체 화면</button>
+<button id="awake" aria-pressed="false">꺼짐 방지 켜기</button>
+<button id="theme" aria-pressed="true">밝은 화면</button>
+</nav>
+<div id="message" role="status"></div>
+<script>
+const $=id=>document.getElementById(id),ns='http://www.w3.org/2000/svg',root=document.documentElement;
+for(let i=0;i<60;i++){const t=document.createElementNS(ns,'rect'),major=i%5===0;
+t.setAttribute('x',major?'293':'297.5');t.setAttribute('y','12');t.setAttribute('width',major?'14':'5');t.setAttribute('height',major?'44':'17');
+t.setAttribute('transform',`rotate(${i*6} 300 300)`);t.setAttribute('class','tick');$('ticks').append(t);}
+for(let i=1;i<=12;i++){const t=document.createElementNS(ns,'text'),a=i*Math.PI/6;
+t.setAttribute('x',300+214*Math.sin(a));t.setAttribute('y',300-214*Math.cos(a));t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','central');
+t.setAttribute('font-size','34');t.setAttribute('font-weight','600');t.setAttribute('fill','currentColor');t.textContent=i;$('numbers').append(t);}
+let lastLabel=0;
+function update(){const now=new Date(),s=now.getSeconds()+now.getMilliseconds()/1000,m=now.getMinutes()+s/60,h=now.getHours()%12+m/60;
+$('hour').setAttribute('transform',`rotate(${h*30} 300 300)`);$('minute').setAttribute('transform',`rotate(${m*6} 300 300)`);$('second').setAttribute('transform',`rotate(${s*6} 300 300)`);
+if(Date.now()-lastLabel>1000){$('clock').setAttribute('aria-label',now.toLocaleTimeString('ko-KR'));lastLabel=Date.now();}
+requestAnimationFrame(update);}update();
+
+let hideTimer,messageTimer;
+function showControls(){clearTimeout(hideTimer);$('controls').classList.remove('hidden');hideTimer=setTimeout(()=>$('controls').classList.add('hidden'),1000);}
+['pointerdown','pointermove','keydown','click'].forEach(e=>document.addEventListener(e,showControls));showControls();
+function message(t){clearTimeout(messageTimer);$('message').textContent=t;$('message').classList.add('visible');messageTimer=setTimeout(()=>$('message').classList.remove('visible'),4200);}
+
+$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(root.requestFullscreen)await root.requestFullscreen();else message('이 기기에서는 홈 화면에 추가한 뒤 실행하면 더 넓게 볼 수 있습니다.');}catch{message('이 화면에서는 전체 화면을 쓸 수 없습니다. 브라우저 메뉴에서 홈 화면에 추가해 실행하세요.');}};
+document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'전체 화면 종료':'전체 화면';});
+
+let lock=null,wanted=false,requesting=false;
+function lockUI(){const active=!!lock&&!lock.released;$('awake').setAttribute('aria-pressed',String(active));$('awake').textContent=active?'꺼짐 방지 켜짐':wanted?'꺼짐 방지 다시 시도':'꺼짐 방지 켜기';}
+async function acquire(){if(requesting||document.visibilityState!=='visible'||!wanted)return;requesting=true;
+try{lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>{lock=null;lockUI();});if(!wanted){await lock.release();lock=null;}lockUI();}
+catch{lockUI();message('꺼짐 방지를 켜지 못했습니다. 기기의 자동 잠금 설정을 확인하세요.');}finally{requesting=false;}}
+$('awake').onclick=async()=>{if(!navigator.wakeLock){message('이 브라우저에서는 꺼짐 방지를 지원하지 않습니다. 기기 설정에서 자동 잠금을 꺼주세요.');return;}
+if(wanted&&lock){wanted=false;await lock.release();lock=null;lockUI();}else{wanted=true;await acquire();}};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&wanted)acquire();});
+
+function themeUI(){const dark=root.dataset.mode==='dark';$('theme').setAttribute('aria-pressed',String(dark));$('theme').textContent=dark?'밝은 화면':'어두운 화면';}themeUI();
+$('theme').onclick=()=>{root.dataset.mode=root.dataset.mode==='dark'?'light':'dark';themeUI();try{localStorage.setItem('rail-theme',root.dataset.mode);}catch{}};
+
+if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+</script>
+</body></html>

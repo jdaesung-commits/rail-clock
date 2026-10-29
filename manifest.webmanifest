@@ -1,0 +1,1 @@
+{"name":"철도 시계","short_name":"철도 시계","description":"화면 가득 표시되는 아날로그 철도 시계","lang":"ko","start_url":"./index.html","scope":"./","display":"fullscreen","display_override":["fullscreen","standalone"],"background_color":"#080808","theme_color":"#080808","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
